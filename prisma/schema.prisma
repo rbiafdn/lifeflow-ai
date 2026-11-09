@@ -1,0 +1,345 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  settings    UserSettings?
+  categories  Category[]
+  tasks       Task[]
+  recurrences Recurrence[]
+  habits      Habit[]
+  goals       Goal[]
+  notes       LearningNote[]
+  templates   Template[]
+  changeSets  ChangeSet[]
+  proposals   AiProposal[]
+  aiUsage     AiUsage[]
+  reviews     WeeklyReview[]
+  sleepLogs   SleepLog[]
+}
+
+model UserSettings {
+  userId           String   @id
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wakeTime         String   @default("07:00")
+  sleepTime        String   @default("23:30")
+  workStart        String   @default("09:00")
+  workEnd          String   @default("18:00")
+  workDays         Int[]    @default([1, 2, 3, 4, 5])
+  commuteMinutes   Int      @default(30)
+  dailyFreeMinutes Int      @default(60)
+  focusStart       String   @default("19:00")
+  focusEnd         String   @default("22:00")
+  sportDays        Int[]    @default([1, 3, 5])
+  restDays         Int[]    @default([0])
+  weeklyGoals      Json     @default("{}")
+  notifications    Json     @default("{\"email\":false,\"push\":false,\"dailySummary\":true}")
+  timezone         String   @default("Europe/Istanbul")
+  theme            String   @default("system")
+  updatedAt        DateTime @updatedAt
+}
+
+model Category {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                String
+  color               String   @default("#6366f1")
+  icon                String   @default("circle")
+  isDefault           Boolean  @default(false)
+  weeklyTargetMinutes Int      @default(0)
+  sortOrder           Int      @default(0)
+  createdAt           DateTime @default(now())
+
+  tasks       Task[]
+  recurrences Recurrence[]
+  habits      Habit[]
+  goals       Goal[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TimeType {
+  FIXED
+  FLEXIBLE
+  PRIORITY
+  OPTIONAL
+  REST
+}
+
+enum TaskStatus {
+  PLANNED
+  DONE
+  SKIPPED
+  CANCELLED
+  FAILED
+  POSTPONED
+}
+
+/// date, deadline, seriesDate: YYYY-MM-DD; startTime/endTime: HH:mm
+/// flexibility: 0 sabit, 1 ayni gun icinde, 2 ayni hafta icinde, 3 serbest
+model Task {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId      String?
+  category        Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  title           String
+  notes           String?
+  date            String
+  startTime       String?
+  endTime         String?
+  durationMinutes Int         @default(30)
+  priority        Priority    @default(MEDIUM)
+  timeType        TimeType    @default(FLEXIBLE)
+  flexibility     Int         @default(1)
+  deadline        String?
+  status          TaskStatus  @default(PLANNED)
+  difficulty      Int         @default(2)
+  postponeCount   Int         @default(0)
+  completedAt     DateTime?
+  recurrenceId    String?
+  recurrence      Recurrence? @relation(fields: [recurrenceId], references: [id], onDelete: Cascade)
+  seriesDate      String?
+  detached        Boolean     @default(false)
+  goalId          String?
+  goal            Goal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([recurrenceId, seriesDate])
+  @@index([userId, date])
+  @@index([userId, status])
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+}
+
+/// weekdays: 0=Pazar ... 6=Cumartesi
+model Recurrence {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  title           String
+  notes           String?
+  startTime       String?
+  durationMinutes Int       @default(30)
+  priority        Priority  @default(MEDIUM)
+  timeType        TimeType  @default(FLEXIBLE)
+  flexibility     Int       @default(1)
+  difficulty      Int       @default(2)
+  frequency       Frequency @default(WEEKLY)
+  weekdays        Int[]     @default([])
+  interval        Int       @default(1)
+  startDate       String
+  endDate         String?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tasks Task[]
+
+  @@index([userId])
+}
+
+model Habit {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId   String?
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name         String
+  icon         String    @default("check")
+  frequency    Frequency @default(DAILY)
+  weekdays     Int[]     @default([0, 1, 2, 3, 4, 5, 6])
+  dailyTarget  Int       @default(1)
+  weeklyTarget Int       @default(7)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  archivedAt   DateTime?
+
+  logs HabitLog[]
+
+  @@index([userId])
+}
+
+enum HabitStatus {
+  DONE
+  SKIPPED
+  POSTPONED
+}
+
+model HabitLog {
+  id        String      @id @default(cuid())
+  habitId   String
+  habit     Habit       @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  date      String
+  status    HabitStatus @default(DONE)
+  value     Int         @default(1)
+  note      String?
+  createdAt DateTime    @default(now())
+
+  @@unique([habitId, date])
+}
+
+enum GoalStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+/// area: english | astrology | software | general | custom
+model Goal {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  area        String     @default("general")
+  targetDate  String?
+  status      GoalStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  milestones Milestone[]
+  notes      LearningNote[]
+  tasks      Task[]
+
+  @@index([userId])
+}
+
+model Milestone {
+  id        String    @id @default(cuid())
+  goalId    String
+  goal      Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title     String
+  done      Boolean   @default(false)
+  sortOrder Int       @default(0)
+  doneAt    DateTime?
+}
+
+/// kind: note | vocab | topic
+model LearningNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalId    String?
+  goal      Goal?    @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  kind      String   @default("note")
+  title     String
+  content   String   @default("")
+  tags      String[] @default([])
+  mastered  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, goalId])
+}
+
+/// kind: DAY | WEEK
+model Template {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  kind      String   @default("DAY")
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// source: USER | AI | SYSTEM
+model ChangeSet {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  description String
+  source      String   @default("USER")
+  forward     Json
+  inverse     Json
+  undone      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// status: PENDING | APPLIED | REJECTED | EXPIRED
+model AiProposal {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  summary    String
+  rationale  String
+  operations Json
+  preview    Json
+  status     String    @default("PENDING")
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([userId, status])
+}
+
+model AiUsage {
+  id           String @id @default(cuid())
+  userId       String
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         String
+  calls        Int    @default(0)
+  inputTokens  Int    @default(0)
+  outputTokens Int    @default(0)
+
+  @@unique([userId, date])
+}
+
+model WeeklyReview {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart String
+  content   String
+  stats     Json
+  createdAt DateTime @default(now())
+
+  @@unique([userId, weekStart])
+}
+
+model SleepLog {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date     String
+  bedTime  String
+  wakeTime String
+  minutes  Int
+  quality  Int    @default(3)
+
+  @@unique([userId, date])
+}

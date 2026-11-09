@@ -62,8 +62,8 @@ app.use("/api", (_req, res) => {
   res.status(404).json({ error: "Uç nokta bulunamadı." });
 });
 
-// Yerel production: derlenmiş istemciyi sun (Vercel'de statik dosyalar ayrıca servis edilir)
-if (!process.env.VERCEL) {
+// Production: derlenmiş istemciyi aynı süreçten sun
+{
   const here = path.dirname(fileURLToPath(import.meta.url));
   const clientDir = path.resolve(here, "../../dist/client");
   if (fs.existsSync(clientDir)) {

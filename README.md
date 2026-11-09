@@ -47,9 +47,9 @@ npm test          # planlama motoru + API entegrasyon testleri
 | `AI_DAILY_LIMIT` | Kullanıcı başına günlük AI çağrı sınırı (varsayılan 60) |
 | `CLIENT_ORIGIN` | Ayrı origin'den istemci varsa CORS için (isteğe bağlı) |
 
-## Dağıtım (Vercel)
+## Dağıtım
 
-`vercel.json` Express uygulamasını `api/index.ts` üzerinden serverless fonksiyon olarak, Vite çıktısını statik olarak yayınlar. Derleme komutu `prisma generate && prisma migrate deploy && vite build` olduğundan `DATABASE_URL` derleme sırasında da tanımlı olmalıdır.
+Uygulama tek bir Node süreci olarak çalışır: `npm run build && npm start`. Node + PostgreSQL barındıran herhangi bir ortamda `DATABASE_URL`, `JWT_SECRET` ve `ANTHROPIC_API_KEY` tanımlanıp `npx prisma migrate deploy` çalıştırılması yeterlidir.
 
 ## Mimari notlar
 

@@ -6,7 +6,7 @@ function req(name: string, fallback?: string): string {
   return v;
 }
 
-export const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+export const isProd = process.env.NODE_ENV === "production";
 
 export const config = {
   port: Number(process.env.PORT ?? 5200),

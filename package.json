@@ -9,7 +9,7 @@
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vite",
     "build": "prisma generate && vite build",
-    "vercel-build": "prisma generate && prisma migrate deploy && vite build",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "start": "node --import tsx src/server/index.ts",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",

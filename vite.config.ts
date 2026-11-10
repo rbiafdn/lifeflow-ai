@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
 export default defineConfig({
+  base: "/lifeflow-ai/",
   root: path.resolve(import.meta.dirname, "src/client"),
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -19,6 +20,5 @@ export default defineConfig({
   server: {
     port: 5201,
     strictPort: true,
-    proxy: { "/api": "http://localhost:5200" },
   },
 });

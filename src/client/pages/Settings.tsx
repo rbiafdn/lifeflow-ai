@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Plus, Trash2, Download, Upload, Undo2, Redo2, Save } from "lucide-react";
-import { api } from "../lib/api";
+import { Plus, Trash2, Download, Upload, Undo2, Redo2, Save, KeyRound, Eye, EyeOff } from "lucide-react";
+import { api, downloadExport } from "../lib/api";
 import { useStore, errorText } from "../lib/store";
 import { PageHeader, Confirm, Segmented } from "../components/ui";
 import type { SettingsDTO, CategoryDTO } from "@shared/types";
@@ -20,24 +20,38 @@ function DayPicker({ value, onChange }: { value: number[]; onChange: (v: number[
   );
 }
 
+interface AiStatus {
+  enabled: boolean;
+  model: string;
+  dailyLimit: number;
+  usage: { calls: number; limit: number };
+}
+
 export function SettingsPage() {
   const { user, setUser, settings, refreshSettings, categories, refreshCategories, toast, theme, setTheme } = useStore();
   const [s, setS] = useState<SettingsDTO | null>(settings);
   const [name, setName] = useState(user?.name ?? "");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [newCat, setNewCat] = useState({ name: "", color: "#6366f1", weeklyTargetMinutes: 0 });
   const [delCat, setDelCat] = useState<CategoryDTO | null>(null);
-  const [delAccount, setDelAccount] = useState(false);
+  const [resetAll, setResetAll] = useState(false);
   const [history, setHistory] = useState<{ id: string; description: string; source: string; undone: boolean; createdAt: string }[]>([]);
   const [templates, setTemplates] = useState<{ id: string; name: string; kind: string; createdAt: string }[]>([]);
+  const [ai, setAi] = useState<AiStatus | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [model, setModel] = useState("claude-opus-5-5");
+  const [dailyLimit, setDailyLimit] = useState(60);
 
   useEffect(() => setS(settings), [settings]);
   const loadExtras = async () => {
     try {
-      const [h, t] = await Promise.all([api.get<{ history: typeof history }>("/api/operations/history"), api.get<{ templates: typeof templates }>("/api/templates")]);
+      const [h, t, a] = await Promise.all([api.get<{ history: typeof history }>("/api/operations/history"), api.get<{ templates: typeof templates }>("/api/templates"), api.get<AiStatus>("/api/ai/status")]);
       setHistory(h.history);
       setTemplates(t.templates);
+      setAi(a);
+      setModel(a.model);
+      setDailyLimit(a.dailyLimit);
     } catch (e) {
       toast(errorText(e), "error");
     }
@@ -55,8 +69,7 @@ export function SettingsPage() {
     if (!s) return;
     setBusy(true);
     try {
-      const { workDays, sportDays, restDays, weeklyGoals, notifications, ...rest } = s;
-      await api.put("/api/settings", { ...rest, workDays, sportDays, restDays, weeklyGoals: weeklyGoals ?? {}, notifications });
+      await api.put("/api/settings", s);
       await refreshSettings();
       toast("Ayarlar kaydedildi", "success");
     } catch (err) {
@@ -69,13 +82,30 @@ export function SettingsPage() {
   async function saveProfile(e: FormEvent) {
     e.preventDefault();
     try {
-      const r = await api.patch<{ user: { id: string; name: string; email: string } }>("/api/auth/me", { name, ...(password ? { password } : {}) });
+      const r = await api.patch<{ user: { id: string; name: string; email: string } }>("/api/auth/me", { name });
       setUser(r.user);
-      setPassword("");
       toast("Profil güncellendi", "success");
     } catch (err) {
       toast(errorText(err), "error");
     }
+  }
+
+  async function saveAi(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await api.put("/api/ai/config", { ...(apiKey ? { apiKey: apiKey.trim() } : {}), model: model.trim(), dailyLimit });
+      setApiKey("");
+      await loadExtras();
+      toast("Yapay zekâ ayarları kaydedildi", "success");
+    } catch (err) {
+      toast(errorText(err), "error");
+    }
+  }
+
+  async function removeKey() {
+    await api.put("/api/ai/config", { apiKey: "" });
+    await loadExtras();
+    toast("Anahtar silindi");
   }
 
   async function addCategory(e: FormEvent) {
@@ -107,16 +137,6 @@ export function SettingsPage() {
     }
   }
 
-  async function download(url: string) {
-    const res = await fetch(url, { credentials: "include" });
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = res.headers.get("content-disposition")?.match(/filename="(.+)"/)?.[1] ?? "lifeflow-export";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
   async function importFile(file: File) {
     try {
       const json = JSON.parse(await file.text());
@@ -138,11 +158,10 @@ export function SettingsPage() {
     }
   }
 
-  async function deleteAccount() {
+  async function wipe() {
     try {
       await api.delete("/api/data/account", { confirm: "SİL" });
-      setUser(null);
-      window.location.href = "/giris";
+      window.location.reload();
     } catch (err) {
       toast(errorText(err), "error");
     }
@@ -150,7 +169,46 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Ayarlar" subtitle="Bu bilgiler AI planlama ve otomatik yeniden planlamada kullanılır." />
+      <PageHeader title="Ayarlar" subtitle="Bu bilgiler yapay zekâ planlaması ve otomatik yeniden planlamada kullanılır. Tüm veriler yalnızca bu tarayıcıda saklanır." />
+
+      <form onSubmit={saveAi} className="card space-y-3 p-4">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+          <KeyRound size={15} className="text-brand-600" /> Yapay zekâ (Claude)
+        </h2>
+        <p className="text-xs text-slate-500">
+          Asistan ve haftalık değerlendirme için bir Anthropic API anahtarı gerekir. Anahtar yalnızca bu tarayıcıda saklanır ve doğrudan Anthropic'e gönderilir; yedek dosyalarına yazılmaz.{" "}
+          {ai?.enabled ? <span className="font-medium text-emerald-600">Anahtar kayıtlı · bugün {ai.usage.calls}/{ai.usage.limit} çağrı</span> : <span className="font-medium text-amber-600">Anahtar yok; asistan kapalı (planlama araçları çalışır).</span>}
+        </p>
+        <div className="grid gap-2 md:grid-cols-[1fr_200px_120px]">
+          <div>
+            <label className="label">{ai?.enabled ? "Yeni anahtar (değiştirmek için)" : "API anahtarı"}</label>
+            <div className="relative">
+              <input className="input pr-9" type={showKey ? "text" : "password"} placeholder="sk-ant-…" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" />
+              <button type="button" className="absolute right-2 top-2 text-slate-400" onClick={() => setShowKey(!showKey)}>
+                {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="label">Model</label>
+            <input className="input" value={model} onChange={(e) => setModel(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Günlük sınır</label>
+            <input className="input" type="number" min={1} max={1000} value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value))} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          {ai?.enabled && (
+            <button type="button" className="btn-ghost text-red-600" onClick={removeKey}>
+              Anahtarı sil
+            </button>
+          )}
+          <button className="btn-primary">
+            <Save size={15} /> Kaydet
+          </button>
+        </div>
+      </form>
 
       <form onSubmit={saveSettings} className="card space-y-4 p-4">
         <h2 className="text-sm font-semibold">Günlük düzen</h2>
@@ -248,12 +306,6 @@ export function SettingsPage() {
           <Field label="Ad">
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="E-posta">
-            <input className="input" value={user?.email ?? ""} disabled />
-          </Field>
-          <Field label="Yeni şifre (boş bırakılabilir)">
-            <input className="input" type="password" value={password} minLength={8} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
-          </Field>
           <div className="flex justify-end">
             <button className="btn-secondary">Güncelle</button>
           </div>
@@ -262,10 +314,10 @@ export function SettingsPage() {
         <div className="card space-y-3 p-4">
           <h2 className="text-sm font-semibold">Veri ve yedekleme</h2>
           <div className="flex flex-wrap gap-2">
-            <button className="btn-secondary" onClick={() => download("/api/data/export.json")}>
+            <button className="btn-secondary" onClick={() => downloadExport("/api/data/export.json").catch((e) => toast(errorText(e), "error"))}>
               <Download size={15} /> JSON yedek
             </button>
-            <button className="btn-secondary" onClick={() => download("/api/data/export.csv")}>
+            <button className="btn-secondary" onClick={() => downloadExport("/api/data/export.csv").catch((e) => toast(errorText(e), "error"))}>
               <Download size={15} /> CSV (görevler)
             </button>
             <label className="btn-secondary cursor-pointer">
@@ -273,10 +325,10 @@ export function SettingsPage() {
               <input type="file" accept="application/json" className="hidden" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} />
             </label>
           </div>
-          <p className="text-xs text-slate-500">AI istekleri saklanmaz; yalnızca günlük çağrı sayısı tutulur.</p>
+          <p className="text-xs text-slate-500">Veriler bu tarayıcıda saklanır. Başka bir cihazda kullanmak için JSON yedeği alıp orada içe aktar. AI istekleri saklanmaz; yalnızca günlük çağrı sayısı tutulur.</p>
           <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
-            <button className="btn-ghost text-red-600" onClick={() => setDelAccount(true)}>
-              <Trash2 size={15} /> Hesabımı ve tüm verilerimi sil
+            <button className="btn-ghost text-red-600" onClick={() => setResetAll(true)}>
+              <Trash2 size={15} /> Tüm verileri sil
             </button>
           </div>
         </div>
@@ -339,7 +391,7 @@ export function SettingsPage() {
       </div>
 
       <Confirm open={!!delCat} onClose={() => setDelCat(null)} onConfirm={removeCategory} title="Kategoriyi sil" text={`"${delCat?.name}" silinecek; bu kategorideki görevler kategorisiz kalır.`} danger />
-      <Confirm open={delAccount} onClose={() => setDelAccount(false)} onConfirm={deleteAccount} title="Hesabı sil" text="Tüm görevler, alışkanlıklar, hedefler ve ayarlar kalıcı olarak silinecek. Önce JSON yedek almanı öneririz." danger />
+      <Confirm open={resetAll} onClose={() => setResetAll(false)} onConfirm={wipe} title="Tüm verileri sil" text="Görevler, alışkanlıklar, hedefler, ayarlar ve geçmiş bu tarayıcıdan kalıcı olarak silinecek (API anahtarı korunur). Önce JSON yedek almanı öneririz." danger />
     </div>
   );
 }

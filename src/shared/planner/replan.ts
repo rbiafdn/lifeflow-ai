@@ -1,8 +1,8 @@
 // Yeniden planlama senaryoları. Her senaryo doğrulanabilir operasyon listesi + gerekçe üretir.
 // Veritabanına dokunmaz; sonuçlar kullanıcı onayından sonra uygulanır.
 
-import { addDays, toMinutes, toHHMM, weekStart, dateRange, formatDateTR, daysBetween } from "../../shared/time";
-import type { Operation, TaskInput } from "../../shared/types";
+import { addDays, toMinutes, toHHMM, weekStart, dateRange, formatDateTR, daysBetween } from "../time";
+import type { Operation, TaskInput } from "../types";
 import {
   type PlannerTask,
   type PlannerSettings,

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { isValidDate, isValidHHMM } from "../../shared/time";
-import { PRIORITIES, TIME_TYPES, TASK_STATUSES } from "../../shared/types";
+import { isValidDate, isValidHHMM } from "../shared/time";
+import { PRIORITIES, TIME_TYPES, TASK_STATUSES } from "../shared/types";
 
 export const dateSchema = z.string().refine(isValidDate, "YYYY-MM-DD biçiminde olmalı");
 export const timeSchema = z.string().refine(isValidHHMM, "HH:mm biçiminde olmalı");

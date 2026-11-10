@@ -1,8 +1,8 @@
 // Zaman dilimi hesapları: boş zaman bulma, çakışma tespiti, görev yerleştirme.
 // Tamamen saf fonksiyonlar; veritabanına dokunmaz.
 
-import { toMinutes, toHHMM, weekday, DAY_MINUTES } from "../../shared/time";
-import type { Priority, TimeType, TaskStatus, SettingsDTO } from "../../shared/types";
+import { toMinutes, toHHMM, weekday, DAY_MINUTES } from "../time";
+import type { Priority, TimeType, TaskStatus, SettingsDTO } from "../types";
 
 export interface Slot {
   start: number; // dakika, gece yarısından itibaren

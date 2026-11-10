@@ -1,7 +1,6 @@
 import type { ZodType } from "zod";
-import { badRequest } from "./errors";
+import { badRequest } from "./db";
 
-/** Zod şemasıyla doğrular; hata varsa 400 fırlatır. */
 export function parse<T>(schema: ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (!result.success) {

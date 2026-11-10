@@ -1,5 +1,5 @@
-import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, CalendarDays, Repeat, Target, BarChart3, Sparkles, Settings, LogOut, Sun, Moon, Monitor } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { LayoutDashboard, CalendarDays, Repeat, Target, BarChart3, Sparkles, Settings, Sun, Moon, Monitor } from "lucide-react";
 import { useStore } from "../lib/store";
 
 const NAV = [
@@ -15,8 +15,7 @@ const NAV = [
 const MOBILE_NAV = NAV.filter((n) => ["/", "/takvim", "/asistan", "/aliskanliklar", "/ayarlar"].includes(n.to));
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { user, logout, theme, setTheme } = useStore();
-  const nav = useNavigate();
+  const { user, theme, setTheme } = useStore();
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
   const nextTheme = () => setTheme(theme === "system" ? "light" : theme === "light" ? "dark" : "system");
 
@@ -53,23 +52,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between px-2">
             <div className="min-w-0">
               <div className="truncate text-sm font-medium">{user?.name}</div>
-              <div className="truncate text-[11px] text-slate-500">{user?.email}</div>
+              <div className="truncate text-[11px] text-slate-500">Veriler bu cihazda</div>
             </div>
-            <div className="flex items-center gap-1">
-              <button className="btn-ghost p-2" title="Tema" onClick={nextTheme}>
-                <ThemeIcon size={16} />
-              </button>
-              <button
-                className="btn-ghost p-2"
-                title="Çıkış"
-                onClick={async () => {
-                  await logout();
-                  nav("/giris");
-                }}
-              >
-                <LogOut size={16} />
-              </button>
-            </div>
+            <button className="btn-ghost p-2" title="Tema" onClick={nextTheme}>
+              <ThemeIcon size={16} />
+            </button>
           </div>
         </div>
       </aside>
@@ -80,14 +67,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 md:hidden">
         {MOBILE_NAV.map((n) => (
-          <NavLink
-            key={n.to}
-            to={n.to}
-            end={n.end}
-            className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] ${isActive ? "text-brand-600 dark:text-brand-300" : "text-slate-500"}`
-            }
-          >
+          <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] ${isActive ? "text-brand-600 dark:text-brand-300" : "text-slate-500"}`}>
             <n.icon size={20} />
             {n.label}
           </NavLink>

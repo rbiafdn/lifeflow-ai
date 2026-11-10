@@ -1,7 +1,7 @@
-// Uygulama geneli durum: kullanıcı, ayarlar, kategoriler, tema, bildirimler (toast).
+// Uygulama geneli durum: profil, ayarlar, kategoriler, tema, bildirimler (toast).
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, ApiError } from "./api";
+import { api } from "./api";
 import type { CategoryDTO, SettingsDTO } from "@shared/types";
 
 export interface User {
@@ -30,7 +30,6 @@ interface Store {
   refreshSettings: () => Promise<void>;
   refreshCategories: () => Promise<void>;
   toast: (text: string, kind?: Toast["kind"]) => void;
-  logout: () => Promise<void>;
   categoryById: (id: string | null | undefined) => CategoryDTO | undefined;
 }
 
@@ -87,27 +86,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const r = await api.get<{ user: User }>("/api/auth/me");
         setUser(r.user);
+        await Promise.all([refreshSettings(), refreshCategories()]);
       } catch (e) {
-        if (!(e instanceof ApiError && e.status === 401)) console.warn(e);
-        setUser(null);
+        console.error(e);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    refreshSettings().catch(() => undefined);
-    refreshCategories().catch(() => undefined);
-  }, [user, refreshSettings, refreshCategories]);
-
-  const logout = useCallback(async () => {
-    await api.post("/api/auth/logout");
-    setUser(null);
-    setSettings(null);
-    setCategories([]);
-  }, []);
+  }, [refreshSettings, refreshCategories]);
 
   const value = useMemo<Store>(
     () => ({
@@ -122,10 +108,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refreshSettings,
       refreshCategories,
       toast,
-      logout,
       categoryById: (id) => categories.find((c) => c.id === id),
     }),
-    [user, loading, settings, categories, theme, toasts, refreshSettings, refreshCategories, toast, logout],
+    [user, loading, settings, categories, theme, toasts, refreshSettings, refreshCategories, toast],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -138,7 +123,6 @@ export function useStore(): Store {
 }
 
 export function errorText(e: unknown): string {
-  if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
   return "Beklenmeyen hata";
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { freeSlots, findSlot, detectConflicts, placeOnDay, type PlannerTask, type PlannerSettings, totalFreeMinutes } from "../src/server/planner/slots";
-import { moveTask, postponeTask, freeWindow, lightenWeek, catchUp, markFailedAndReschedule, planDay, type PlannerContext } from "../src/server/planner/replan";
+import { freeSlots, findSlot, detectConflicts, placeOnDay, type PlannerTask, type PlannerSettings, totalFreeMinutes } from "../src/shared/planner/slots";
+import { moveTask, postponeTask, freeWindow, lightenWeek, catchUp, markFailedAndReschedule, planDay, type PlannerContext } from "../src/shared/planner/replan";
 import { toMinutes, weekStart, addDays } from "../src/shared/time";
 
 const settings: PlannerSettings = {
